@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 渲染助手</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div class="app-container">
+    <h1 class="title">AI 渲染助手</h1>
+    <div id="upload-section" class="upload-section glass">
+      <label for="file-input" class="upload-label" id="upload-label">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16v16H4z" />
+          <path d="M8 12l2 2 4-4" />
+        </svg>
+        <span>上传平面图或 3D 模型</span>
+      </label>
+      <div id="file-preview" class="file-preview hidden">
+        <img id="thumb-img" alt="Thumbnail" />
+        <div class="file-info">
+          <span id="thumb-name"></span>
+          <button id="remove-file-btn" title="移除檔案">✕</button>
+        </div>
+      </div>
+      <input type="file" id="file-input" accept="image/*,.skp,.obj,.usdz" hidden />
+    </div>
+    <div id="canvas-wrapper" class="canvas-wrapper glass hidden">
+      <canvas id="preview-canvas"></canvas>
+      <div class="toolbar" id="toolbar">
+        <button class="tool-btn" data-tool="brush" title="画笔">
+          <svg viewBox="0 0 24 24" class="icon"><path d="M12 2l9 9-9 9-9-9z"/></svg>
+        </button>
+        <button class="tool-btn" data-tool="color" title="颜色挑选">
+          <svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="12" r="10"/></svg>
+        </button>
+        <button class="tool-btn" data-tool="shape" title="形状框选">
+          <svg viewBox="0 0 24 24" class="icon"><rect x="4" y="4" width="16" height="16"/></svg>
+        </button>
+        <hr class="toolbar-divider" />
+        <button class="tool-btn" data-tool="undo" title="復原 (Ctrl+Z)">
+          <svg viewBox="0 0 24 24" class="icon"><path d="M9 14L4 9l5-5" stroke="currentColor" fill="none" stroke-width="2"/><path d="M4 9h10a5 5 0 0 1 0 10H11" stroke="currentColor" fill="none" stroke-width="2"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="prompt-section glass">
+      <input type="text" id="prompt-input" placeholder="描述渲染重点…" />
+      <button id="render-btn" class="render-btn">渲染</button>
+    </div>
+    <div id="render-progress" class="render-progress hidden">
+      <div class="spinner"></div>
+      <span id="render-status">渲染中...</span>
+    </div>
+    <div id="result-section" class="result-section glass hidden">
+      <h2>渲染结果</h2>
+      <img id="result-image" alt="渲染结果" />
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
