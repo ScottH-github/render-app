@@ -1,0 +1,8 @@
+name = "render-app-proxy"
+main = "src/index.js"
+compatibility_date = "2024-03-01"
+
+[vars]
+# You will set the real API key in the Cloudflare dashboard or via wrangler secret.
+# Local development only dummy key:
+BANANA_API_KEY = "dummy-dev-key"
