@@ -22,9 +22,10 @@ const thumbImg = document.getElementById("thumb-img");
 const thumbName = document.getElementById("thumb-name");
 const removeFileBtn = document.getElementById("remove-file-btn");
 
-// ---------- UI Elements (Progress) ----------
+// ---------- UI Elements (Progress & Model) ----------
 const renderProgress = document.getElementById("render-progress");
 const renderStatus = document.getElementById("render-status");
+const modelSelect = document.getElementById("model-select");
 
 // ---------- State ----------
 let currentTool = "brush"; // brush | color | shape
@@ -396,7 +397,15 @@ renderBtn.addEventListener("click", async () => {
     const imageName = uploadData.name;
 
     // 2. Generate standard ComfyUI JSON payload for simple img2img
-    // 註: 底下使用的 Checkpoint 名稱 ("v1-5-pruned-emaonly.safetensors") 如果您電腦裡沒有這顆模型會報錯，可以將名字換成您電腦裡有的模型名稱。
+    const selectedModel = modelSelect.value;
+    if (!selectedModel) {
+      alert("請先選擇一個模型");
+      renderBtn.disabled = false;
+      renderBtn.textContent = "渲染";
+      if (renderProgress) renderProgress.classList.add("hidden");
+      return;
+    }
+
     const promptJSON = {
       "3": {
         "class_type": "KSampler",
@@ -416,7 +425,7 @@ renderBtn.addEventListener("click", async () => {
       "4": {
         "class_type": "CheckpointLoaderSimple",
         "inputs": {
-          "ckpt_name": "v1-5-pruned-emaonly.safetensors"
+          "ckpt_name": selectedModel
         }
       },
       "6": {
@@ -470,7 +479,16 @@ renderBtn.addEventListener("click", async () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(reqBody)
     });
-    if (!queueResp.ok) throw new Error("傳送渲染工作至 ComfyUI 失敗");
+    if (!queueResp.ok) {
+      let errorDetail = "";
+      try {
+        const errorBody = await queueResp.json();
+        errorDetail = errorBody.error?.message || errorBody.node_errors
+          ? `\n\n${JSON.stringify(errorBody.node_errors || errorBody.error, null, 2)}`
+          : `\n\nHTTP ${queueResp.status}`;
+      } catch { errorDetail = `\n\nHTTP ${queueResp.status}`; }
+      throw new Error(`傳送渲染工作至 ComfyUI 失敗${errorDetail}`);
+    }
     const queueData = await queueResp.json();
     const promptId = queueData.prompt_id;
 
@@ -530,7 +548,50 @@ renderBtn.addEventListener("click", async () => {
   }
 });
 
+// ---------- Load Available Models from ComfyUI ----------
+async function loadAvailableModels() {
+  try {
+    const resp = await fetch(`${COMFYUI_ENDPOINT}/object_info/CheckpointLoaderSimple`);
+    if (!resp.ok) throw new Error("Failed to fetch models");
+    const data = await resp.json();
+    const models = data.CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] || [];
+
+    modelSelect.innerHTML = "";
+    if (models.length === 0) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "無可用模型";
+      modelSelect.appendChild(opt);
+      return;
+    }
+
+    models.forEach((name, i) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      // Show a shorter display name (remove .safetensors suffix)
+      opt.textContent = name.replace(/\.safetensors$/, "").replace(/\.ckpt$/, "");
+      modelSelect.appendChild(opt);
+    });
+
+    // Restore last selected model from localStorage
+    const lastModel = localStorage.getItem("selectedModel");
+    if (lastModel && models.includes(lastModel)) {
+      modelSelect.value = lastModel;
+    }
+  } catch (err) {
+    console.warn("無法從 ComfyUI 取得模型列表:", err);
+    modelSelect.innerHTML = '<option value="">無法連接 ComfyUI</option>';
+  }
+}
+
+// Save model selection
+modelSelect.addEventListener("change", () => {
+  localStorage.setItem("selectedModel", modelSelect.value);
+});
+
 // ---------- Init ----------
 restoreStateIfExists();
 // Set initial active tool indicator
 document.querySelector('[data-tool="brush"]')?.classList.add("active");
+// Load models from ComfyUI
+loadAvailableModels();
