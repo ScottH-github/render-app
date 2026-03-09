@@ -1,0 +1,19 @@
+{
+  "name": "render-app",
+  "version": "1.0.0",
+  "description": "AI Render Assistant - Canvas annotation with ComfyUI rendering",
+  "scripts": {
+    "start": "http-server -p 3000 -c-1",
+    "test": "npx playwright test",
+    "proxy": "cd workers-proxy && npx wrangler dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.3.5",
+    "http-server": "^14.1.1",
+    "wrangler": "^4.71.0"
+  }
+}
