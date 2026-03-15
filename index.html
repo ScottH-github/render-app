@@ -4,11 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI 渲染助手</title>
-  <link rel="stylesheet" href="/src/style.css" />
+  <link rel="stylesheet" href="src/style.css" />
 </head>
 <body>
   <div class="app-container">
-    <h1 class="title">AI 渲染助手</h1>
+    <div class="title-row">
+      <h1 class="title">AI 渲染助手</h1>
+      <button id="guide-btn" class="guide-btn" title="使用說明">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </button>
+    </div>
     <div id="upload-section" class="upload-section glass">
       <label for="file-input" class="upload-label" id="upload-label">
         <svg xmlns="http://www.w3.org/2000/svg" class="icon" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -24,18 +29,18 @@
           <button id="remove-file-btn" title="移除檔案">✕</button>
         </div>
       </div>
-      <input type="file" id="file-input" accept="image/*,.skp,.obj,.usdz" hidden />
+      <input type="file" id="file-input" accept="image/*,.skp,.obj,.usdz,.glb,.gltf" hidden />
     </div>
     <div id="canvas-wrapper" class="canvas-wrapper glass hidden">
       <canvas id="preview-canvas"></canvas>
       <div class="toolbar" id="toolbar">
-        <button class="tool-btn" data-tool="brush" title="画笔">
+        <button class="tool-btn" data-tool="brush" title="畫筆">
           <svg viewBox="0 0 24 24" class="icon"><path d="M12 2l9 9-9 9-9-9z"/></svg>
         </button>
-        <button class="tool-btn" data-tool="color" title="颜色挑选">
+        <button class="tool-btn" data-tool="color" title="顏色挑選">
           <svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="12" r="10"/></svg>
         </button>
-        <button class="tool-btn" data-tool="shape" title="形状框选">
+        <button class="tool-btn" data-tool="shape" title="形狀框選">
           <svg viewBox="0 0 24 24" class="icon"><rect x="4" y="4" width="16" height="16"/></svg>
         </button>
         <hr class="toolbar-divider" />
@@ -44,25 +49,361 @@
         </button>
       </div>
     </div>
+    <!-- 3D Model Viewer -->
+    <div id="model-viewer-wrapper" class="model-viewer-wrapper glass hidden">
+      <model-viewer id="model-preview" camera-controls auto-rotate
+        shadow-intensity="1" exposure="0.75"
+        style="width:100%;height:100%;background-color:transparent;">
+      </model-viewer>
+      <div id="model-unsupported" class="model-unsupported hidden">
+        <svg viewBox="0 0 24 24" class="icon" width="48" height="48"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0022 16z" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+        <p>此 3D 格式暫不支援瀏覽器預覽</p>
+        <p class="hint">請匯出為 .glb / .usdz / .obj 格式</p>
+      </div>
+    </div>
     <div class="model-section glass">
       <label for="model-select" class="model-label">模型</label>
+      <button id="model-help-btn" class="help-btn" title="模型搭配說明">?</button>
       <select id="model-select" class="model-select">
         <option value="">載入中...</option>
       </select>
+      <p id="model-desc" class="model-desc"></p>
+    </div>
+    <!-- Recommended Models -->
+    <div id="model-store" class="model-store glass">
+      <div class="store-header">
+        <span class="store-title">推薦模型</span>
+        <button id="store-toggle-btn" class="store-toggle-btn" title="展開/收合">
+          <svg viewBox="0 0 24 24" class="icon" width="16" height="16"><path d="M6 9l6 6 6-6" stroke="currentColor" fill="none" stroke-width="2"/></svg>
+        </button>
+      </div>
+      <div id="store-body" class="store-body hidden">
+        <div id="store-list" class="store-list"></div>
+      </div>
+    </div>
+    <!-- ControlNet Section -->
+    <div class="controlnet-section glass">
+      <div class="controlnet-header">
+        <label class="controlnet-toggle">
+          <input type="checkbox" id="controlnet-enabled" />
+          <span class="toggle-slider"></span>
+          <span class="toggle-label">ControlNet</span>
+        </label>
+      </div>
+      <div id="controlnet-options" class="controlnet-options hidden">
+        <div class="controlnet-row">
+          <label class="cn-label">類型</label>
+          <select id="controlnet-type" class="model-select">
+            <option value="canny">Canny（邊緣偵測）</option>
+            <option value="depth">Depth（深度圖）</option>
+            <option value="scribble">Scribble（塗鴉）</option>
+            <option value="openpose">OpenPose（姿態）</option>
+          </select>
+        </div>
+        <div class="controlnet-row">
+          <label class="cn-label">模型</label>
+          <select id="controlnet-model" class="model-select">
+            <option value="">載入中...</option>
+          </select>
+          <p id="cn-model-desc" class="model-desc"></p>
+        </div>
+        <div class="controlnet-row">
+          <label class="cn-label">強度 <span id="cn-strength-val">1.0</span></label>
+          <input type="range" id="controlnet-strength" min="0" max="2" step="0.05" value="1.0" class="cn-slider" />
+        </div>
+        <div class="controlnet-row">
+          <label class="controlnet-preprocess-label">
+            <input type="checkbox" id="controlnet-preprocess" checked />
+            <span>套用預處理器</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <!-- Advanced Settings -->
+    <div class="advanced-section glass">
+      <div class="advanced-header">
+        <span class="advanced-title">進階設定</span>
+        <button id="advanced-toggle-btn" class="store-toggle-btn" title="展開/收合">
+          <svg viewBox="0 0 24 24" class="icon" width="16" height="16"><path d="M6 9l6 6 6-6" stroke="currentColor" fill="none" stroke-width="2"/></svg>
+        </button>
+      </div>
+      <div id="advanced-body" class="advanced-body hidden">
+        <div class="controlnet-row">
+          <label class="cn-label">重繪幅度 <span id="denoise-val">0.75</span></label>
+          <input type="range" id="denoise-slider" min="0" max="1" step="0.05" value="0.75" class="cn-slider" />
+        </div>
+        <p class="advanced-hint">低 (0.1~0.3)：微調，保留原圖結構｜中 (0.4~0.6)：風格轉換｜高 (0.7~1.0)：大幅重繪</p>
+      </div>
     </div>
     <div class="prompt-section glass">
-      <input type="text" id="prompt-input" placeholder="描述渲染重点…" />
+      <div class="prompt-input-row">
+        <input type="text" id="prompt-input" placeholder="描述渲染重點（中英文皆可）…" />
+        <button id="ai-enhance-btn" class="ai-enhance-btn" title="AI 優化提示詞">
+          <svg viewBox="0 0 24 24" class="icon" width="18" height="18"><path d="M12 2L9 9H2l6 4.5L5.5 21 12 16l6.5 5-2.5-7.5L22 9h-7L12 2z" fill="currentColor"/></svg>
+          <span>AI</span>
+        </button>
+      </div>
+      <div id="ai-thinking-panel" class="ai-thinking-panel hidden">
+        <div class="ai-thinking-header">
+          <div class="ai-thinking-indicator">
+            <div class="thinking-dot"></div>
+            <span>AI 分析中…</span>
+          </div>
+          <span id="ai-thinking-time" class="ai-thinking-time"></span>
+        </div>
+        <div id="ai-thinking-content" class="ai-thinking-content"></div>
+      </div>
+      <div id="negative-prompt-row" class="negative-prompt-row hidden">
+        <input type="text" id="negative-prompt-input" placeholder="負面提示詞（自動生成）…" />
+      </div>
       <button id="render-btn" class="render-btn">渲染</button>
     </div>
-    <div id="render-progress" class="render-progress hidden">
-      <div class="spinner"></div>
-      <span id="render-status">渲染中...</span>
+    <div id="render-progress" class="render-progress glass hidden">
+      <div class="render-progress-header">
+        <div class="spinner"></div>
+        <span id="render-status">渲染中...</span>
+        <span id="render-elapsed" class="render-elapsed"></span>
+      </div>
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+      </div>
+      <div class="render-steps">
+        <div class="render-step" id="step-upload" data-step="upload">
+          <span class="step-icon">○</span><span>上傳圖片</span>
+        </div>
+        <div class="render-step" id="step-queue" data-step="queue">
+          <span class="step-icon">○</span><span>送出任務</span>
+        </div>
+        <div class="render-step" id="step-render" data-step="render">
+          <span class="step-icon">○</span><span>AI 渲染</span><span id="progress-percent" class="progress-percent"></span>
+        </div>
+        <div class="render-step" id="step-done" data-step="done">
+          <span class="step-icon">○</span><span>取得結果</span>
+        </div>
+      </div>
     </div>
     <div id="result-section" class="result-section glass hidden">
       <h2>渲染结果</h2>
       <img id="result-image" alt="渲染结果" />
     </div>
   </div>
-  <script type="module" src="/src/main.js"></script>
+  <!-- Model Help Popup -->
+  <div id="model-help-overlay" class="help-overlay hidden">
+    <div class="help-popup glass">
+      <div class="help-popup-header">
+        <h3>模型與 ControlNet 搭配指南</h3>
+        <button id="help-close-btn" class="help-close-btn">&times;</button>
+      </div>
+      <div class="help-popup-body">
+        <section class="help-section">
+          <h4>核心規則</h4>
+          <p class="help-rule">Checkpoint 與 ControlNet <strong>必須使用相同架構</strong>（如 SDXL 配 SDXL），否則會產生 tensor shape 錯誤。</p>
+        </section>
+
+        <section class="help-section">
+          <h4>可用搭配</h4>
+          <div class="help-pair-group">
+            <div class="help-arch-tag sdxl">SDXL</div>
+            <div class="help-pair-content">
+              <p class="help-pair-label">Checkpoint</p>
+              <p>JuggernautXL · RealVisXL · NoobAI-XL · NightVisionXL · ZavyChromaXL</p>
+              <p class="help-pair-label">ControlNet</p>
+              <p>noob-sdxl 系列（canny / depth / lineart / normal / scribble / softedge / tile / openpose）、xinsir union、sdxl qrcode</p>
+            </div>
+          </div>
+          <div class="help-pair-group">
+            <div class="help-arch-tag sd15">SD1.5</div>
+            <div class="help-pair-content">
+              <p class="help-pair-label">Checkpoint</p>
+              <p>DreamShaper 8 · Serenity</p>
+              <p class="help-pair-label">ControlNet</p>
+              <p>control_v11p_sd15 系列（canny / depth / lineart / softedge / scribble / openpose / tile / inpaint / normalbae / seg）、sd15 qrcode</p>
+            </div>
+          </div>
+          <div class="help-pair-group">
+            <div class="help-arch-tag flux">FLUX</div>
+            <div class="help-pair-content">
+              <p class="help-pair-label">Checkpoint</p>
+              <p>FLUX.1-dev（高品質通用，20-30 步）· FLUX.1-schnell（極速，4 步）</p>
+              <p class="help-pair-label">支援格式</p>
+              <p>.gguf（使用 UnetLoaderGGUF + DualCLIPLoader + VAELoader）· .safetensors（使用 CheckpointLoaderSimple）</p>
+              <p class="help-pair-label">ControlNet</p>
+              <p>Union-Pro 2.0 · Inpainting Beta</p>
+              <p class="help-note">FLUX 使用 cfg=1.0、euler sampler、simple scheduler；不使用負面提示詞</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section">
+          <h4>ControlNet 功能說明</h4>
+          <div class="help-table">
+            <div class="help-row help-row-header">
+              <span>情境</span><span>建議類型</span><span>說明</span>
+            </div>
+            <div class="help-row">
+              <span>保留建築結構</span><span>Canny / Lineart</span><span>精確保留線條輪廓</span>
+            </div>
+            <div class="help-row">
+              <span>保留空間深度</span><span>Depth</span><span>保持前後景透視關係</span>
+            </div>
+            <div class="help-row">
+              <span>手繪草圖生成</span><span>Scribble</span><span>從粗略手繪引導生成</span>
+            </div>
+            <div class="help-row">
+              <span>控制人物姿態</span><span>OpenPose</span><span>辨識骨架控制動作</span>
+            </div>
+            <div class="help-row">
+              <span>放大不失真</span><span>Tile</span><span>保留細節做超解析度</span>
+            </div>
+            <div class="help-row">
+              <span>柔和風格轉換</span><span>Softedge</span><span>比 Canny 更自然柔和</span>
+            </div>
+            <div class="help-row">
+              <span>局部修改</span><span>Inpaint</span><span>只重繪遮罩區域</span>
+            </div>
+            <div class="help-row">
+              <span>控制光影</span><span>Normal</span><span>透過法線圖控制光影方向</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section">
+          <h4>推薦搭配範例</h4>
+          <div class="help-recipes">
+            <div class="help-recipe">
+              <span class="help-recipe-tag">室內設計（寫實）</span>
+              <p>JuggernautXL / RealVisXL + Depth，強度 0.7~1.0</p>
+            </div>
+            <div class="help-recipe">
+              <span class="help-recipe-tag">建築外觀改造</span>
+              <p>ZavyChromaXL + Canny，強度 0.8~1.0</p>
+            </div>
+            <div class="help-recipe">
+              <span class="help-recipe-tag">草圖→完整圖像</span>
+              <p>DreamShaper 8 + Scribble，強度 0.6~0.8</p>
+            </div>
+            <div class="help-recipe">
+              <span class="help-recipe-tag">動漫插畫</span>
+              <p>NoobAI-XL + Lineart Anime，強度 0.7~0.9</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+  <!-- Usage Guide Overlay -->
+  <div id="guide-overlay" class="help-overlay hidden">
+    <div class="help-popup glass">
+      <div class="help-popup-header">
+        <h3>使用說明</h3>
+        <button id="guide-close-btn" class="help-close-btn">&times;</button>
+      </div>
+      <div class="help-popup-body">
+        <section class="help-section">
+          <h4>快速入門</h4>
+          <div class="guide-steps">
+            <div class="guide-step">
+              <span class="guide-step-num">1</span>
+              <div>
+                <strong>上傳圖片</strong>
+                <p>點選上傳區塊或拖放平面圖、3D 渲染截圖、照片至上傳區。支援 JPG、PNG 等圖片格式。</p>
+              </div>
+            </div>
+            <div class="guide-step">
+              <span class="guide-step-num">2</span>
+              <div>
+                <strong>選擇模型</strong>
+                <p>從下拉選單選取 AI 模型。<strong>室內設計寫實推薦</strong>：JuggernautXL 或 RealVisXL（SDXL 架構）。</p>
+              </div>
+            </div>
+            <div class="guide-step">
+              <span class="guide-step-num">3</span>
+              <div>
+                <strong>輸入提示詞</strong>
+                <p>描述你想要的渲染效果，中英文皆可。點「AI」按鈕可自動優化提示詞。</p>
+                <p class="guide-example">範例：<em>modern minimalist living room, warm lighting, wooden floor, large windows, photorealistic</em></p>
+              </div>
+            </div>
+            <div class="guide-step">
+              <span class="guide-step-num">4</span>
+              <div>
+                <strong>點擊「渲染」</strong>
+                <p>等待 AI 處理完成即可取得渲染結果。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section">
+          <h4>進階功能</h4>
+          <div class="guide-feature-grid">
+            <div class="guide-feature">
+              <strong>ControlNet</strong>
+              <p>開啟 ControlNet 可讓 AI 保留原圖的結構、深度或邊緣。室內設計建議使用 <strong>Depth</strong>（保留空間感）或 <strong>Canny</strong>（保留線條）。</p>
+            </div>
+            <div class="guide-feature">
+              <strong>重繪幅度 (Denoise)</strong>
+              <p><strong>0.1~0.3</strong>：微調色調，原圖變化小<br><strong>0.4~0.6</strong>：風格轉換，保留大致構圖<br><strong>0.7~1.0</strong>：大幅重繪，僅保留大致輪廓</p>
+            </div>
+            <div class="guide-feature">
+              <strong>畫筆標註</strong>
+              <p>上傳圖片後可使用畫筆、顏色、形狀工具在圖上標註重點區域。按 Ctrl+Z 可復原。</p>
+            </div>
+            <div class="guide-feature">
+              <strong>負面提示詞</strong>
+              <p>AI 優化後會自動產生負面提示詞，排除不想要的元素（如模糊、浮水印等）。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section">
+          <h4>模型選擇建議</h4>
+          <div class="help-table">
+            <div class="help-row help-row-header">
+              <span>使用場景</span><span>推薦模型</span><span>搭配 ControlNet</span>
+            </div>
+            <div class="help-row">
+              <span>室內設計（寫實）</span><span>JuggernautXL / RealVisXL</span><span>Depth，強度 0.7~1.0</span>
+            </div>
+            <div class="help-row">
+              <span>建築外觀改造</span><span>ZavyChromaXL</span><span>Canny，強度 0.8~1.0</span>
+            </div>
+            <div class="help-row">
+              <span>手繪草圖生成</span><span>DreamShaper 8</span><span>Scribble，強度 0.6~0.8</span>
+            </div>
+            <div class="help-row">
+              <span>動漫風格插畫</span><span>NoobAI-XL</span><span>Lineart，強度 0.7~0.9</span>
+            </div>
+            <div class="help-row">
+              <span>夜景 / 氣氛圖</span><span>NightVisionXL</span><span>Depth，強度 0.5~0.8</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section">
+          <h4>提示詞技巧</h4>
+          <div class="guide-tips">
+            <div class="guide-tip">
+              <span class="guide-tip-icon">✦</span>
+              <p><strong>描述具體</strong>：用具體的材質、光線、風格描述，效果比模糊描述好很多。</p>
+            </div>
+            <div class="guide-tip">
+              <span class="guide-tip-icon">✦</span>
+              <p><strong>英文為主</strong>：模型主要以英文訓練，英文提示詞效果通常更好。AI 按鈕會自動翻譯。</p>
+            </div>
+            <div class="guide-tip">
+              <span class="guide-tip-icon">✦</span>
+              <p><strong>加入品質詞</strong>：如 <em>masterpiece, best quality, 8k, photorealistic, professional photography</em>。</p>
+            </div>
+            <div class="guide-tip">
+              <span class="guide-tip-icon">✦</span>
+              <p><strong>指定攝影風格</strong>：如 <em>wide angle lens, soft natural lighting, golden hour, magazine photography</em>。</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>

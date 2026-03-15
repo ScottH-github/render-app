@@ -92,6 +92,9 @@ render-app/
 ---
 
 ## 📝 後續優化方向 (TODO)
-1.  **3D 支援**: 優化 `.skp`, `.usdz` 檔案的預覽體驗。
-2.  **模型切換**: 支援從前端選擇不同的 Checkpoint 或 LoRA。
-3.  **進度條**: 對接 ComfyUI WebSocket 以顯示精確的渲染進度。
+1.  ~~**3D 支援**: 優化 `.skp`, `.usdz` 檔案的預覽體驗。~~ ✅ 已完成（model-viewer 整合）
+2.  ~~**模型切換**: 支援從前端選擇不同的 Checkpoint 或 LoRA。~~ ✅ 已完成
+3.  ~~**進度條**: 對接 ComfyUI WebSocket 以顯示精確的渲染進度。~~ ✅ 已完成（WebSocket + HTTP 回退）
+4.  ~~**ControlNet**: 支援 Canny / Depth / Scribble / OpenPose 等進階控制。~~ ✅ 已完成
+5.  **LoRA 支援**: 支援從前端選擇並載入 LoRA 模型。
+6.  **批次渲染**: 支援一次送出多張圖片進行渲染。
