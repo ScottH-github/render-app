@@ -1144,6 +1144,124 @@ body {
 }
 
 /* Advanced Settings */
+/* Scene Presets */
+.preset-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.preset-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+.preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.6rem 0.25rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.75rem;
+}
+.preset-btn:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
+  color: var(--text-primary);
+}
+.preset-btn.active {
+  background: rgba(255,107,107,0.15);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+.preset-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.preset-name {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.preset-desc {
+  font-size: 0.78rem;
+  color: var(--accent);
+  margin: 0;
+  min-height: 1.2em;
+  opacity: 0.9;
+}
+
+/* Prompt Tags */
+.prompt-tags-section {
+  display: flex;
+  flex-direction: column;
+}
+.tags-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.tags-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+.tags-body {
+  padding-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.tags-body.hidden { display: none; }
+.tags-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.tags-group-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.tag-btn {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.tag-btn:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.25);
+  color: var(--text-primary);
+}
+.tag-btn.active {
+  background: rgba(255,107,107,0.2);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .advanced-section {
   display: flex;
   flex-direction: column;

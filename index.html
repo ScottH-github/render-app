@@ -81,6 +81,29 @@
         <div id="store-list" class="store-list"></div>
       </div>
     </div>
+    <!-- Scene Presets -->
+    <div class="preset-section glass">
+      <label class="preset-label">場景預設</label>
+      <div class="preset-grid" id="preset-grid">
+        <button class="preset-btn" data-preset="interior-realistic" title="SketchUp 線圖→寫實渲染">
+          <span class="preset-icon">🏠</span>
+          <span class="preset-name">室內寫實</span>
+        </button>
+        <button class="preset-btn" data-preset="interior-style" title="已渲染圖片→換風格">
+          <span class="preset-icon">🎨</span>
+          <span class="preset-name">風格轉換</span>
+        </button>
+        <button class="preset-btn" data-preset="exterior" title="建築外觀渲染">
+          <span class="preset-icon">🏢</span>
+          <span class="preset-name">建築外觀</span>
+        </button>
+        <button class="preset-btn" data-preset="night-scene" title="夜景/氣氛渲染">
+          <span class="preset-icon">🌙</span>
+          <span class="preset-name">夜景氣氛</span>
+        </button>
+      </div>
+      <p id="preset-desc" class="preset-desc"></p>
+    </div>
     <!-- ControlNet Section -->
     <div class="controlnet-section glass">
       <div class="controlnet-header">
@@ -133,6 +156,84 @@
           <input type="range" id="denoise-slider" min="0" max="1" step="0.05" value="0.75" class="cn-slider" />
         </div>
         <p class="advanced-hint">低 (0.1~0.3)：微調，保留原圖結構｜中 (0.4~0.6)：風格轉換｜高 (0.7~1.0)：大幅重繪</p>
+      </div>
+    </div>
+    <!-- Prompt Tags -->
+    <div class="prompt-tags-section glass">
+      <div class="tags-header">
+        <span class="tags-title">提示詞標籤</span>
+        <button id="tags-toggle-btn" class="store-toggle-btn" title="展開/收合">
+          <svg viewBox="0 0 24 24" class="icon" width="16" height="16"><path d="M6 9l6 6 6-6" stroke="currentColor" fill="none" stroke-width="2"/></svg>
+        </button>
+      </div>
+      <div id="tags-body" class="tags-body">
+        <div class="tags-group">
+          <span class="tags-group-label">風格</span>
+          <div class="tags-row">
+            <button class="tag-btn" data-tag="Scandinavian Nordic style">北歐風</button>
+            <button class="tag-btn" data-tag="Wabi-sabi style, natural imperfection, earthy tones">侘寂風</button>
+            <button class="tag-btn" data-tag="modern minimalist style">現代簡約</button>
+            <button class="tag-btn" data-tag="Japanese zen style, muji aesthetic">日式禪風</button>
+            <button class="tag-btn" data-tag="industrial loft style, exposed brick, metal">工業風</button>
+            <button class="tag-btn" data-tag="luxury modern style, marble, gold accents">輕奢風</button>
+            <button class="tag-btn" data-tag="mid-century modern style, retro furniture">中古世紀</button>
+            <button class="tag-btn" data-tag="French countryside, rustic charm">法式鄉村</button>
+            <button class="tag-btn" data-tag="new Chinese style, oriental elegance">新中式</button>
+            <button class="tag-btn" data-tag="Art Deco style, geometric patterns">裝飾藝術</button>
+          </div>
+        </div>
+        <div class="tags-group">
+          <span class="tags-group-label">光線</span>
+          <div class="tags-row">
+            <button class="tag-btn" data-tag="warm lighting, 3000K color temperature">暖光 3000K</button>
+            <button class="tag-btn" data-tag="neutral white lighting, 4000K">中性光 4000K</button>
+            <button class="tag-btn" data-tag="cool daylight, 5500K">冷白光 5500K</button>
+            <button class="tag-btn" data-tag="soft natural daylight from large windows">自然日光</button>
+            <button class="tag-btn" data-tag="golden hour warm sunlight, long shadows">黃金時刻</button>
+            <button class="tag-btn" data-tag="dramatic directional lighting, strong shadows">戲劇光影</button>
+            <button class="tag-btn" data-tag="ambient indirect lighting, no harsh shadows">間接照明</button>
+            <button class="tag-btn" data-tag="LED strip accent lighting, cove lighting">燈帶氛圍</button>
+          </div>
+        </div>
+        <div class="tags-group">
+          <span class="tags-group-label">材質</span>
+          <div class="tags-row">
+            <button class="tag-btn" data-tag="walnut wood flooring and furniture">胡桃木</button>
+            <button class="tag-btn" data-tag="white oak wood, light wood tones">白橡木</button>
+            <button class="tag-btn" data-tag="white marble with grey veins">白色大理石</button>
+            <button class="tag-btn" data-tag="concrete texture, cement walls">清水模</button>
+            <button class="tag-btn" data-tag="natural linen and cotton textiles">亞麻布藝</button>
+            <button class="tag-btn" data-tag="black matte metal, iron details">黑色金屬</button>
+            <button class="tag-btn" data-tag="brushed brass and gold hardware">黃銅五金</button>
+            <button class="tag-btn" data-tag="terrazzo flooring">水磨石</button>
+            <button class="tag-btn" data-tag="herringbone wood floor pattern">人字拼木地板</button>
+            <button class="tag-btn" data-tag="rattan and woven natural fibers">藤編</button>
+          </div>
+        </div>
+        <div class="tags-group">
+          <span class="tags-group-label">空間</span>
+          <div class="tags-row">
+            <button class="tag-btn" data-tag="living room">客廳</button>
+            <button class="tag-btn" data-tag="bedroom">臥室</button>
+            <button class="tag-btn" data-tag="kitchen and dining area">廚房餐廳</button>
+            <button class="tag-btn" data-tag="bathroom">浴室</button>
+            <button class="tag-btn" data-tag="home office, study room">書房</button>
+            <button class="tag-btn" data-tag="open floor plan, spacious layout">開放式格局</button>
+            <button class="tag-btn" data-tag="high ceiling, double height space">挑高空間</button>
+            <button class="tag-btn" data-tag="balcony with outdoor view">陽台</button>
+          </div>
+        </div>
+        <div class="tags-group">
+          <span class="tags-group-label">品質</span>
+          <div class="tags-row">
+            <button class="tag-btn" data-tag="photorealistic, 8K, ultra detailed">8K 超寫實</button>
+            <button class="tag-btn" data-tag="professional architectural photography">專業攝影</button>
+            <button class="tag-btn" data-tag="ray tracing, global illumination">光線追蹤</button>
+            <button class="tag-btn" data-tag="magazine cover quality, editorial photography">雜誌封面</button>
+            <button class="tag-btn" data-tag="wide angle lens, 24mm">廣角鏡頭</button>
+            <button class="tag-btn" data-tag="shallow depth of field, bokeh">淺景深</button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="prompt-section glass">

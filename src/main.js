@@ -1594,6 +1594,201 @@ loadAvailableModels = async function () {
   renderModelStore();
 };
 
+// ---------- Prompt Tags ----------
+const tagsToggleBtn = document.getElementById("tags-toggle-btn");
+const tagsBody = document.getElementById("tags-body");
+
+if (tagsToggleBtn && tagsBody) {
+  const tagsHeader = tagsToggleBtn.closest(".tags-header");
+  tagsHeader.addEventListener("click", () => {
+    tagsBody.classList.toggle("hidden");
+    tagsToggleBtn.classList.toggle("open");
+  });
+}
+
+// Track active tags
+const activeTags = new Set();
+
+document.getElementById("tags-body")?.addEventListener("click", (e) => {
+  const btn = e.target.closest(".tag-btn");
+  if (!btn) return;
+
+  const tag = btn.dataset.tag;
+  const isActive = btn.classList.toggle("active");
+
+  if (isActive) {
+    activeTags.add(tag);
+    // Append to prompt
+    const current = promptInput.value.trim();
+    promptInput.value = current ? `${current}, ${tag}` : tag;
+  } else {
+    activeTags.delete(tag);
+    // Remove from prompt
+    let current = promptInput.value;
+    // Remove the tag and cleanup commas
+    const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    current = current.replace(new RegExp(",?\\s*" + escaped + "\\s*,?"), (match) => {
+      if (match.startsWith(",") && match.endsWith(",")) return ",";
+      return "";
+    });
+    current = current.replace(/^[,\s]+|[,\s]+$/g, "").replace(/,\s*,/g, ", ");
+    promptInput.value = current;
+  }
+});
+
+// ---------- Scene Presets ----------
+const SCENE_PRESETS = {
+  "interior-realistic": {
+    name: "室內寫實",
+    desc: "SketchUp 線圖 → 照片級寫實渲染。自動配置 JuggernautXL + Depth ControlNet",
+    checkpoint: "juggernaut",
+    checkpointFallback: "realvis",
+    controlnet: { enabled: true, type: "depth", keyword: "depth", strength: 0.85 },
+    denoise: 0.65,
+    promptTemplate: "photorealistic interior design, professional architectural photography, warm natural lighting, detailed materials and textures, 8K, ray tracing, soft shadows",
+    negativeTemplate: "cartoon, painting, sketch, blurry, low quality, deformed, unrealistic, oversaturated, plastic texture, flat lighting, watermark, text",
+  },
+  "interior-style": {
+    name: "風格轉換",
+    desc: "已渲染圖 → 換風格。低重繪幅度保留配置，只改材質/色調",
+    checkpoint: "juggernaut",
+    checkpointFallback: "realvis",
+    controlnet: { enabled: true, type: "depth", keyword: "depth", strength: 0.9 },
+    denoise: 0.45,
+    promptTemplate: "same layout, same furniture arrangement, photorealistic interior design, professional photography",
+    negativeTemplate: "different layout, moved furniture, cartoon, blurry, low quality, watermark",
+  },
+  "exterior": {
+    name: "建築外觀",
+    desc: "建築外觀渲染。ZavyChroma 高色彩 + Canny 保留結構線條",
+    checkpoint: "zavychroma",
+    checkpointFallback: "juggernaut",
+    controlnet: { enabled: true, type: "canny", keyword: "canny", strength: 0.85 },
+    denoise: 0.65,
+    promptTemplate: "photorealistic architectural exterior, professional photography, blue sky, landscaping, natural lighting, detailed facade materials, 8K",
+    negativeTemplate: "cartoon, painting, blurry, low quality, deformed, watermark",
+  },
+  "night-scene": {
+    name: "夜景氣氛",
+    desc: "夜景/低光氛圍渲染。NightVision 模型擅長電影級暗調場景",
+    checkpoint: "nightvision",
+    checkpointFallback: "juggernaut",
+    controlnet: { enabled: true, type: "depth", keyword: "depth", strength: 0.75 },
+    denoise: 0.7,
+    promptTemplate: "night scene interior, warm ambient lighting, cozy atmosphere, cinematic mood, professional photography, dramatic shadows, 8K",
+    negativeTemplate: "bright daylight, overexposed, cartoon, blurry, low quality, watermark",
+  },
+};
+
+function findModelByKeyword(selectEl, keyword) {
+  const options = Array.from(selectEl.options);
+  return options.find((o) => o.value.toLowerCase().includes(keyword.toLowerCase()));
+}
+
+function applyPreset(presetKey) {
+  const preset = SCENE_PRESETS[presetKey];
+  if (!preset) return;
+
+  // 1. Select checkpoint
+  let matched = findModelByKeyword(modelSelect, preset.checkpoint);
+  if (!matched && preset.checkpointFallback) {
+    matched = findModelByKeyword(modelSelect, preset.checkpointFallback);
+  }
+  if (matched) {
+    modelSelect.value = matched.value;
+    localStorage.setItem("selectedModel", matched.value);
+    updateModelDesc();
+  }
+
+  // 2. Set denoise
+  const denoiseSliderEl = document.getElementById("denoise-slider");
+  const denoiseValEl = document.getElementById("denoise-val");
+  if (denoiseSliderEl) {
+    denoiseSliderEl.value = preset.denoise;
+    if (denoiseValEl) denoiseValEl.textContent = preset.denoise.toFixed(2);
+    localStorage.setItem("denoiseValue", preset.denoise);
+  }
+
+  // 3. Enable and configure ControlNet
+  if (preset.controlnet.enabled) {
+    controlnetEnabled.checked = true;
+    controlnetOptions.classList.remove("hidden");
+    localStorage.setItem("controlnetEnabled", "true");
+
+    // Set type
+    controlnetType.value = preset.controlnet.type;
+    localStorage.setItem("controlnetType", preset.controlnet.type);
+
+    // Set strength
+    controlnetStrength.value = preset.controlnet.strength;
+    cnStrengthVal.textContent = preset.controlnet.strength;
+    localStorage.setItem("controlnetStrength", preset.controlnet.strength);
+
+    // Ensure preprocess is on
+    controlnetPreprocess.checked = true;
+    localStorage.setItem("controlnetPreprocess", "true");
+
+    // Load ControlNet models and auto-select matching one
+    loadControlNetModels().then(() => {
+      const arch = detectModelArch(modelSelect.value);
+      const cnOptions = Array.from(controlnetModel.options);
+      // Find matching: same arch + matching keyword
+      let cnMatch = cnOptions.find((o) => {
+        const oArch = detectModelArch(o.value);
+        return oArch === arch && o.value.toLowerCase().includes(preset.controlnet.keyword);
+      });
+      // Fallback: just keyword match
+      if (!cnMatch) {
+        cnMatch = cnOptions.find((o) => o.value.toLowerCase().includes(preset.controlnet.keyword));
+      }
+      if (cnMatch) {
+        controlnetModel.value = cnMatch.value;
+        localStorage.setItem("controlnetModelName", cnMatch.value);
+        updateCnModelDesc();
+      }
+    });
+  }
+
+  // 4. Set prompt template (only if prompt is empty)
+  if (!promptInput.value.trim()) {
+    promptInput.value = preset.promptTemplate;
+  }
+
+  // 5. Set negative prompt
+  negativePromptInput.value = preset.negativeTemplate;
+  negativePromptRow.classList.remove("hidden");
+
+  // 6. Show description
+  const presetDesc = document.getElementById("preset-desc");
+  if (presetDesc) presetDesc.textContent = `✓ ${preset.desc}`;
+
+  // Highlight active preset button
+  document.querySelectorAll(".preset-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.preset === presetKey);
+  });
+
+  localStorage.setItem("activePreset", presetKey);
+}
+
+// Bind preset buttons
+document.getElementById("preset-grid")?.addEventListener("click", (e) => {
+  const btn = e.target.closest(".preset-btn");
+  if (!btn) return;
+  applyPreset(btn.dataset.preset);
+});
+
+// Restore active preset on load
+const savedPreset = localStorage.getItem("activePreset");
+if (savedPreset) {
+  document.querySelectorAll(".preset-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.preset === savedPreset);
+  });
+  const presetDesc = document.getElementById("preset-desc");
+  if (presetDesc && SCENE_PRESETS[savedPreset]) {
+    presetDesc.textContent = `✓ ${SCENE_PRESETS[savedPreset].desc}`;
+  }
+}
+
 // ---------- Denoise Slider ----------
 const denoiseSlider = document.getElementById("denoise-slider");
 const denoiseVal = document.getElementById("denoise-val");
