@@ -2737,9 +2737,7 @@ document.getElementById("preset-grid")?.addEventListener("click", (e) => {
   applyPreset(btn.dataset.preset);
 });
 
-// Restore active preset on load, default to "interior-realistic"
-const savedPreset = localStorage.getItem("activePreset") || "interior-realistic";
-applyPreset(savedPreset);
+// Restore active preset on load — moved into loadAndApplyDefaults().then() to ensure SCENE_PRESETS is loaded
 
 // ---------- Queue Manager ----------
 const queueManagerBtn = document.getElementById("queue-manager-btn");
@@ -3167,4 +3165,8 @@ loadAndApplyDefaults().then(() => {
   document.querySelector('[data-tool="brush"]')?.classList.add("active");
   loadAvailableModels();
   restoreControlNetSettings();
+
+  // Restore active preset (must be after SCENE_PRESETS is loaded from JSON)
+  const savedPreset = localStorage.getItem("activePreset") || "interior-realistic";
+  applyPreset(savedPreset);
 });
