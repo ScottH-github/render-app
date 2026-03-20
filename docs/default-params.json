@@ -1,10 +1,10 @@
 {
-  "_description": "AI 渲染助手 — 所有參數預設值與說明文件",
+  "_description": "AI 渲染助手 — 所有渲染預設參數 (Single Source of Truth)",
   "_lastUpdated": "2026-03-19",
-  "_note": "此檔案僅供參考紀錄用，不會被程式讀取。實際預設值定義在 index.html (HTML attributes) 與 main.js (SCENE_PRESETS) 中。",
+  "_note": "此檔案為唯一預設值來源。程式啟動時由 main.js 的 loadAndApplyDefaults() fetch 此檔並套用到 UI 與渲染邏輯。修改此檔即可變更所有預設值。",
 
   "rendering": {
-    "_section": "進階設定（Advanced Settings）",
+    "_section": "進階設定（Advanced Settings）— UI slider 預設值",
     "denoise": {
       "label": "重繪幅度",
       "default": 0.82,
@@ -12,7 +12,6 @@
       "max": 1,
       "step": 0.05,
       "htmlId": "denoise-slider",
-      "definedIn": "index.html line 199",
       "description": "控制 AI 重繪的程度。0 = 完全保留原圖不改動，1 = 完全重繪忽略原圖。室內寫實建議 0.82~0.92，風格轉換寫實圖建議 0.50 以保留細節。"
     },
     "steps": {
@@ -22,25 +21,22 @@
       "max": 40,
       "step": 1,
       "htmlId": "steps-slider",
-      "definedIn": "index.html line 203",
       "description": "AI 生圖的迭代次數。越高品質越好但渲染時間越長。25 步是品質與速度的平衡點。"
     }
   },
 
   "controlnet": {
-    "_section": "ControlNet 設定",
+    "_section": "ControlNet 設定 — UI 預設值",
     "enabled": {
       "label": "ControlNet 開關",
       "default": false,
       "htmlId": "controlnet-enabled",
-      "definedIn": "index.html line 150",
       "description": "是否啟用 ControlNet 結構控制。啟用後會根據原圖提取結構資訊（邊緣/深度/線稿等），讓 AI 渲染遵循原圖佈局。"
     },
     "type": {
       "label": "類型",
       "default": "canny",
       "htmlId": "controlnet-type",
-      "definedIn": "index.html line 158-167",
       "options": {
         "canny": "Canny — 邊緣偵測，提取硬邊緣輪廓",
         "depth": "Depth — 深度圖，保留空間遠近關係",
@@ -60,20 +56,18 @@
       "max": 2,
       "step": 0.05,
       "htmlId": "controlnet-strength",
-      "definedIn": "index.html line 178",
       "description": "ControlNet 影響渲染結果的程度。0 = 完全不影響，越高越嚴格遵循原圖結構。建議 0.45~0.60，太高會讓圖片僵硬失去自然感。"
     },
     "preprocess": {
       "label": "套用預處理器",
       "default": true,
       "htmlId": "controlnet-preprocess",
-      "definedIn": "index.html line 182",
       "description": "是否對原圖執行預處理（例如 Canny 邊緣偵測、Lineart 提取線稿）。若原圖已經是處理過的結構圖（如純線稿），可關閉此選項。一般建議開啟。"
     }
   },
 
   "styleReference": {
-    "_section": "風格參考 (IP-Adapter)",
+    "_section": "風格參考 (IP-Adapter) — UI 預設值",
     "weight": {
       "label": "風格強度",
       "default": 0.80,
@@ -81,14 +75,12 @@
       "max": 1.5,
       "step": 0.05,
       "htmlId": "style-weight",
-      "definedIn": "index.html line 108",
       "description": "風格參考圖對渲染結果的影響程度。0 = 不參考，1.0+ = 強烈模仿風格。0.6~0.8 為較自然的範圍。"
     },
     "mode": {
       "label": "風格模式",
       "default": "style-only",
       "htmlId": "style-transfer-mode",
-      "definedIn": "index.html line 112-115",
       "options": {
         "style-only": "僅風格 — 只參考顏色、材質、氛圍，保留原圖空間配置",
         "style-composition": "風格+構圖 — 同時參考風格與空間佈局構圖"
@@ -97,57 +89,92 @@
     }
   },
 
+  "workflow": {
+    "_section": "ComfyUI Workflow 渲染引擎參數 — buildWorkflowJSON() 使用",
+    "flux": {
+      "cfg": 1.0,
+      "sampler": "euler",
+      "scheduler": "simple",
+      "maxPixels": 393216,
+      "minDimension": 512,
+      "dimensionMultiple": 16,
+      "defaultWidth": 1024,
+      "defaultHeight": 768,
+      "description": "FLUX 架構的 KSampler 參數。cfg 固定 1.0（FLUX 不需要高 CFG），sampler 用 euler + simple scheduler。maxPixels = 768*512 ≈ 0.4MP，配合 16GB VRAM。"
+    },
+    "sd": {
+      "cfg": 7,
+      "cfgXL": 6,
+      "sampler": "dpmpp_2m",
+      "scheduler": "karras",
+      "stepsDefault": 25,
+      "stepsXL_highDenoise": 35,
+      "stepsXL_lowDenoise": 28,
+      "stepsXL_denoiseThreshold": 0.70,
+      "defaultWidth": 768,
+      "defaultHeight": 512,
+      "defaultWidthXL": 1344,
+      "defaultHeightXL": 768,
+      "defaultNegative": "text, watermark, ugly, lowres, bad quality",
+      "description": "SD1.5/SDXL 架構的 KSampler 參數。SDXL 使用較低 CFG (6) 和較高 steps。sampler 統一 dpmpp_2m + karras。"
+    }
+  },
+
   "scenePresets": {
-    "_section": "場景預設 — 每個預設會自動覆蓋上方各參數",
-    "_definedIn": "main.js SCENE_PRESETS (約 line 2506-2559)",
+    "_section": "場景預設 — 點選預設按鈕時覆蓋 UI 參數 + 填入 prompt 模板",
     "interior-realistic": {
       "name": "室內寫實",
-      "icon": "🏠",
-      "useCase": "SketchUp 線圖 → 照片級寫實渲染",
-      "checkpoint": "Q5_K_S.gguf（優先）/ flux1-dev-fp8（備用）",
+      "desc": "SketchUp → 照片級寫實。FLUX GGUF + Lineart + 預處理（已驗證最佳參數）",
+      "checkpoint": "Q5_K_S.gguf",
+      "checkpointFallback": "flux1-dev-fp8",
       "denoise": 0.92,
       "controlnet": {
         "enabled": true,
         "type": "lineart",
-        "modelKeyword": "union-pro（優先）/ mistoline（備用）",
+        "keyword": "union-pro",
+        "keywordFallback": "mistoline",
         "strength": 0.45,
         "preprocess": true,
         "endPercent": 0.80
       },
-      "styleRef": null,
+      "promptTemplate": "photorealistic interior design, fixed configuration, preserve architectural integrity, maintain original spatial layout, warm wood flooring, soft fabric furniture, recessed lighting, natural daylight from windows, professional architectural photography, ultra detailed, realistic materials and textures",
+      "negativeTemplate": "altered layout, moved furniture, modified decor, different room configuration, added objects, removed objects",
       "description": "最常用的預設。高重繪幅度搭配 Lineart ControlNet 保留線圖結構，生成寫實室內照。"
     },
     "interior-style-photo": {
       "name": "風格轉換（寫實圖）",
-      "icon": "🎨",
-      "useCase": "已渲染的寫實圖 → 換風格色調",
-      "checkpoint": "Q5_K_S.gguf / flux1-dev-fp8",
+      "desc": "已渲染寫實圖 → 換風格色調。低 denoise 保留細節，只改材質與配色",
+      "checkpoint": "Q5_K_S.gguf",
+      "checkpointFallback": "flux1-dev-fp8",
       "denoise": 0.50,
       "controlnet": {
         "enabled": true,
         "type": "lineart",
-        "modelKeyword": "union-pro / mistoline",
+        "keyword": "union-pro",
+        "keywordFallback": "mistoline",
         "strength": 0.55,
-        "preprocess": true,
-        "endPercent": null
+        "preprocess": true
       },
       "styleRef": {
         "enabled": true,
         "mode": "style-only",
         "weight": 0.6
       },
+      "promptTemplate": "fixed configuration, bit-for-bit identical spatial layout, non-destructive editing, same furniture placement, photorealistic interior design, professional photography, realistic materials, warm lighting",
+      "negativeTemplate": "altered layout, moved furniture, modified decor, different room configuration, missing objects, extra objects, cartoon, blurry, low quality, watermark, deformed",
       "description": "低 denoise (0.50) 保留原圖大量細節，搭配風格參考圖只改材質與配色。"
     },
     "interior-style-sketch": {
       "name": "風格轉換（線圖）",
-      "icon": "✏️",
-      "useCase": "SketchUp 線圖 → 指定風格的寫實圖",
-      "checkpoint": "Q5_K_S.gguf / flux1-dev-fp8",
+      "desc": "SketchUp 線圖 → 指定風格寫實圖。高 denoise + ControlNet 保留佈局",
+      "checkpoint": "Q5_K_S.gguf",
+      "checkpointFallback": "flux1-dev-fp8",
       "denoise": 0.92,
       "controlnet": {
         "enabled": true,
         "type": "lineart",
-        "modelKeyword": "union-pro / mistoline",
+        "keyword": "union-pro",
+        "keywordFallback": "mistoline",
         "strength": 0.45,
         "preprocess": true,
         "endPercent": 0.80
@@ -157,64 +184,69 @@
         "mode": "style-only",
         "weight": 0.6
       },
+      "promptTemplate": "photorealistic interior design, fixed configuration, preserve architectural integrity, professional architectural photography, ultra detailed, realistic materials and textures, warm natural lighting",
+      "negativeTemplate": "altered layout, moved furniture, modified decor, sketch, lineart, wireframe, 3D model, SketchUp, cartoon, blurry, low quality, watermark, deformed, text",
       "description": "高 denoise 從線圖大幅重繪，同時用風格參考指定目標風格。結合 ControlNet 保留空間佈局。"
     },
     "exterior": {
       "name": "建築外觀",
-      "icon": "🏢",
-      "useCase": "建築外觀圖 → 照片級寫實渲染",
-      "checkpoint": "Q5_K_S.gguf / flux1-dev-fp8",
+      "desc": "建築外觀 → 照片級寫實。FLUX GGUF + Lineart + 預處理",
+      "checkpoint": "Q5_K_S.gguf",
+      "checkpointFallback": "flux1-dev-fp8",
       "denoise": 0.92,
       "controlnet": {
         "enabled": true,
         "type": "lineart",
-        "modelKeyword": "union-pro / mistoline",
+        "keyword": "union-pro",
+        "keywordFallback": "mistoline",
         "strength": 0.45,
         "preprocess": true,
         "endPercent": 0.80
       },
-      "styleRef": null,
+      "promptTemplate": "photorealistic architectural exterior, fixed configuration, preserve architectural integrity, modern building, blue sky, professional landscaping, golden hour lighting, detailed facade materials, glass reflections, 8K ultra detailed, volumetric lighting",
+      "negativeTemplate": "altered layout, modified structure, sketch, lineart, wireframe, 3D model, cartoon, painting, blurry, low quality, deformed, watermark, text, flat lighting",
       "description": "與室內寫實參數相同，但 promptTemplate 針對建築外觀優化（藍天、景觀、黃金時刻光線等）。"
     },
     "night-scene": {
       "name": "夜景氣氛",
-      "icon": "🌙",
-      "useCase": "室內/室外 → 夜景氛圍渲染",
-      "checkpoint": "Q5_K_S.gguf / flux1-dev-fp8",
+      "desc": "室內/室外夜景。Lineart + 電影級暗調暖光",
+      "checkpoint": "Q5_K_S.gguf",
+      "checkpointFallback": "flux1-dev-fp8",
       "denoise": 0.92,
       "controlnet": {
         "enabled": true,
         "type": "lineart",
-        "modelKeyword": "union-pro / mistoline",
+        "keyword": "union-pro",
+        "keywordFallback": "mistoline",
         "strength": 0.45,
         "preprocess": true,
         "endPercent": 0.80
       },
-      "styleRef": null,
+      "promptTemplate": "night scene interior design, fixed configuration, preserve architectural integrity, maintain original spatial layout, warm ambient lighting, cozy atmosphere, cinematic mood, accent lights, soft warm glow, professional photography, dramatic shadows, moody color grading, 8K detailed",
+      "negativeTemplate": "altered layout, moved furniture, modified decor, bright daylight, overexposed, harsh lighting, cartoon, blurry, low quality, watermark, sketch, lineart, flat lighting",
       "description": "與室內寫實參數相同，但 promptTemplate 強調暖光、電影感、戲劇性陰影等夜景元素。"
     }
   },
 
   "historyRecord": {
-    "_section": "渲染歷史記錄結構 — 每次渲染完成後自動儲存至 IndexedDB",
+    "_section": "渲染歷史記錄結構 — 每次渲染完成後自動儲存至 IndexedDB（僅供說明，不影響程式邏輯）",
     "_database": "render-history",
     "_storeName": "renders",
-    "_definedIn": "main.js RenderHistoryDB (約 line 2878-2943) + 儲存邏輯 (約 line 1729-1762)",
     "fields": {
       "id": "Date.now() 時間戳，作為 IndexedDB primary key",
-      "timestamp": "ISO 8601 時間字串 (new Date().toISOString())",
-      "prompt": "英文 prompt（使用者輸入或翻譯後的結果）",
+      "timestamp": "ISO 8601 時間字串",
+      "prompt": "英文 prompt",
       "negativePrompt": "負面提示詞",
-      "translation": "中文翻譯顯示文字（若有翻譯的話）",
-      "model": "使用的模型檔名（如 flux1-dev-Q5_K_S.gguf）",
-      "imageDataURL": "渲染結果圖的 base64 Data URL (data:image/png;base64,...)",
-      "thumbnail": "縮圖 base64 (200px 寬, JPEG 品質 0.7)，用於歷史列表快速顯示",
+      "translation": "中文翻譯顯示文字",
+      "model": "使用的模型檔名",
+      "imageDataURL": "渲染結果圖 base64 Data URL",
+      "thumbnail": "縮圖 base64 (200px 寬, JPEG 品質 0.7)",
       "params": {
-        "preset": "場景預設名稱（如「室內寫實」），無預設時為空字串",
+        "preset": "場景預設名稱",
         "denoise": "渲染時的重繪幅度值",
         "steps": "渲染時的步數值",
-        "controlnet": "ControlNet 設定物件 {type, model, strength, preprocess, endPercent}，未啟用時為 null",
-        "styleRef": "風格參考設定物件 {weight, mode}，未啟用時為 null"
+        "controlnet": "ControlNet 設定物件，未啟用時為 null",
+        "styleRef": "風格參考設定物件，未啟用時為 null"
       }
     }
   }

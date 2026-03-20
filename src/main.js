@@ -4,6 +4,96 @@
 // --------------------------------------------------
 import { COMFYUI_ENDPOINT, COMFYUI_WS_ENDPOINT, LLM_ENDPOINT } from "../config.js";
 
+// ---------- Default Params (loaded from JSON) ----------
+let DEFAULT_PARAMS = null; // will be populated by loadAndApplyDefaults()
+let SCENE_PRESETS = {};    // populated from JSON scenePresets
+
+async function loadAndApplyDefaults() {
+  try {
+    const res = await fetch("./docs/default-params.json");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    DEFAULT_PARAMS = await res.json();
+    console.log("[Config] Loaded default-params.json");
+
+    // --- Apply UI slider/checkbox defaults (only if no localStorage override) ---
+    const applySlider = (paramDef, valEl) => {
+      const el = document.getElementById(paramDef.htmlId);
+      if (!el) return;
+      // Set range attributes from JSON
+      if (paramDef.min != null) el.min = paramDef.min;
+      if (paramDef.max != null) el.max = paramDef.max;
+      if (paramDef.step != null) el.step = paramDef.step;
+      // Set default value (localStorage may override later in restoreControlNetSettings)
+      el.value = paramDef.default;
+      if (valEl) {
+        const displayEl = document.getElementById(valEl);
+        if (displayEl) displayEl.textContent = typeof paramDef.default === "number" && paramDef.step < 1
+          ? parseFloat(paramDef.default).toFixed(2)
+          : paramDef.default;
+      }
+    };
+
+    const applyCheckbox = (paramDef) => {
+      const el = document.getElementById(paramDef.htmlId);
+      if (el) el.checked = paramDef.default;
+    };
+
+    const applySelect = (paramDef) => {
+      const el = document.getElementById(paramDef.htmlId);
+      if (el) el.value = paramDef.default;
+    };
+
+    // Rendering
+    const r = DEFAULT_PARAMS.rendering;
+    if (r) {
+      if (r.denoise) applySlider(r.denoise, "denoise-val");
+      if (r.steps) applySlider(r.steps, "steps-val");
+    }
+
+    // ControlNet
+    const cn = DEFAULT_PARAMS.controlnet;
+    if (cn) {
+      if (cn.enabled) applyCheckbox(cn.enabled);
+      if (cn.type) applySelect(cn.type);
+      if (cn.strength) applySlider(cn.strength, "cn-strength-val");
+      if (cn.preprocess) applyCheckbox(cn.preprocess);
+    }
+
+    // Style Reference
+    const sr = DEFAULT_PARAMS.styleReference;
+    if (sr) {
+      if (sr.weight) applySlider(sr.weight, "style-weight-val");
+      if (sr.mode) applySelect(sr.mode);
+    }
+
+    // Scene Presets → populate global SCENE_PRESETS
+    if (DEFAULT_PARAMS.scenePresets) {
+      const presets = {};
+      for (const [key, val] of Object.entries(DEFAULT_PARAMS.scenePresets)) {
+        if (key.startsWith("_")) continue; // skip meta fields
+        presets[key] = val;
+      }
+      SCENE_PRESETS = presets;
+    }
+
+  } catch (err) {
+    console.warn("[Config] Failed to load default-params.json, using hardcoded fallbacks:", err);
+    // Fallback: keep inline defaults from HTML attributes
+    SCENE_PRESETS = SCENE_PRESETS_FALLBACK;
+  }
+}
+
+// Hardcoded fallback in case JSON fails to load
+const SCENE_PRESETS_FALLBACK = {
+  "interior-realistic": {
+    name: "室內寫實", desc: "SketchUp → 照片級寫實", checkpoint: "Q5_K_S.gguf", checkpointFallback: "flux1-dev-fp8",
+    controlnet: { enabled: true, type: "lineart", keyword: "union-pro", keywordFallback: "mistoline", strength: 0.45, preprocess: true, endPercent: 0.80 },
+    denoise: 0.92,
+    promptTemplate: "photorealistic interior design, fixed configuration, preserve architectural integrity, maintain original spatial layout, warm wood flooring, soft fabric furniture, recessed lighting, natural daylight from windows, professional architectural photography, ultra detailed, realistic materials and textures",
+    negativeTemplate: "altered layout, moved furniture, modified decor, different room configuration, added objects, removed objects",
+  },
+};
+
 // ---------- UI Elements ----------
 const fileInput = document.getElementById("file-input");
 const uploadSection = document.getElementById("upload-section");
@@ -827,22 +917,25 @@ function buildWorkflowJSON(imageName, promptText, negativeText, selectedModel, c
   if (arch === "FLUX") {
     const denoiseVal = parseFloat(document.getElementById("denoise-slider")?.value ?? 0.75);
     const fluxSteps = parseInt(document.getElementById("steps-slider")?.value ?? 25, 10);
-    const fluxCfg = 1.0;
+    const fluxParams = DEFAULT_PARAMS?.workflow?.flux || {};
+    const fluxCfg = fluxParams.cfg ?? 1.0;
+    const fluxSampler = fluxParams.sampler || "euler";
+    const fluxScheduler = fluxParams.scheduler || "simple";
+    const dimMultiple = fluxParams.dimensionMultiple || 16;
+    const minDim = fluxParams.minDimension || 512;
 
-    // Calculate image dimensions rounded to nearest multiple of 16 (FLUX requirement)
-    // FLUX latent space has 8x compression + 2x patchify → pixel dims must be divisible by 16
-    let fluxW = Math.round(canvas.width / 16) * 16 || 1024;
-    let fluxH = Math.round(canvas.height / 16) * 16 || 768;
-    // Cap to ~0.4 megapixels to fit in 16GB VRAM (FLUX fp8 12GB + Union CN fp8 1.5GB + CLIP 5GB + VAE 0.3GB)
-    const maxPixels = 768 * 512;
+    // Calculate image dimensions rounded to nearest multiple of dimensionMultiple (FLUX requirement)
+    let fluxW = Math.round(canvas.width / dimMultiple) * dimMultiple || (fluxParams.defaultWidth || 1024);
+    let fluxH = Math.round(canvas.height / dimMultiple) * dimMultiple || (fluxParams.defaultHeight || 768);
+    // Cap to maxPixels to fit in VRAM
+    const maxPixels = fluxParams.maxPixels || (768 * 512);
     if (fluxW * fluxH > maxPixels) {
       const scale = Math.sqrt(maxPixels / (fluxW * fluxH));
-      fluxW = Math.round((fluxW * scale) / 16) * 16;
-      fluxH = Math.round((fluxH * scale) / 16) * 16;
+      fluxW = Math.round((fluxW * scale) / dimMultiple) * dimMultiple;
+      fluxH = Math.round((fluxH * scale) / dimMultiple) * dimMultiple;
     }
-    // Minimum 512
-    fluxW = Math.max(512, fluxW);
-    fluxH = Math.max(512, fluxH);
+    fluxW = Math.max(minDim, fluxW);
+    fluxH = Math.max(minDim, fluxH);
     console.log(`[FLUX] Image resize: ${canvas.width}x${canvas.height} → ${fluxW}x${fluxH}`);
 
     // FLUX uses UNETLoader + DualCLIPLoader + VAELoader (not CheckpointLoaderSimple)
@@ -855,8 +948,8 @@ function buildWorkflowJSON(imageName, promptText, negativeText, selectedModel, c
           seed: Math.floor(Math.random() * 1000000000),
           steps: fluxSteps,
           cfg: fluxCfg,
-          sampler_name: "euler",
-          scheduler: "simple",
+          sampler_name: fluxSampler,
+          scheduler: fluxScheduler,
           denoise: denoiseVal,
           model: ["4", 0],
           positive: ["6", 0],
@@ -1032,10 +1125,14 @@ function buildWorkflowJSON(imageName, promptText, negativeText, selectedModel, c
   // ===== SD1.5 / SDXL workflow (default) =====
   const isXL = arch === "SDXL";
   const denoiseVal = parseFloat(document.getElementById("denoise-slider")?.value ?? 0.82);
-  const sdSteps = isXL ? (denoiseVal >= 0.70 ? 35 : 28) : 25;
-  const sdCfg = isXL ? 6 : 7;
-  const sdSampler = "dpmpp_2m";
-  const sdScheduler = "karras";
+  const sdParams = DEFAULT_PARAMS?.workflow?.sd || {};
+  const sdDenoiseThreshold = sdParams.stepsXL_denoiseThreshold ?? 0.70;
+  const sdSteps = isXL
+    ? (denoiseVal >= sdDenoiseThreshold ? (sdParams.stepsXL_highDenoise || 35) : (sdParams.stepsXL_lowDenoise || 28))
+    : (sdParams.stepsDefault || 25);
+  const sdCfg = isXL ? (sdParams.cfgXL ?? 6) : (sdParams.cfg ?? 7);
+  const sdSampler = sdParams.sampler || "dpmpp_2m";
+  const sdScheduler = sdParams.scheduler || "karras";
 
   const workflow = {
     "3": {
@@ -1063,13 +1160,13 @@ function buildWorkflowJSON(imageName, promptText, negativeText, selectedModel, c
     },
     "7": {
       class_type: "CLIPTextEncode",
-      inputs: { text: negativeText || "text, watermark, ugly, lowres, bad quality", clip: ["4", 1] },
+      inputs: { text: negativeText || (sdParams.defaultNegative || "text, watermark, ugly, lowres, bad quality"), clip: ["4", 1] },
     },
     "8": denoiseVal >= 0.95
       ? {
           // txt2img mode: generate from empty latent (no SketchUp pixels in latent space)
           class_type: "EmptyLatentImage",
-          inputs: { width: isXL ? 1344 : 768, height: isXL ? 768 : 512, batch_size: 1 },
+          inputs: { width: isXL ? (sdParams.defaultWidthXL || 1344) : (sdParams.defaultWidth || 768), height: isXL ? (sdParams.defaultHeightXL || 768) : (sdParams.defaultHeight || 512), batch_size: 1 },
         }
       : {
           // img2img mode: encode uploaded image into latent space
@@ -2503,60 +2600,8 @@ document.getElementById("prompt-reset-btn")?.addEventListener("click", rebuildPr
 // ---------- Scene Presets ----------
 // Design principle: All SketchUp-based presets use Depth ControlNet
 // (ignores lines/text, preserves 3D spatial structure only)
-const SCENE_PRESETS = {
-  "interior-realistic": {
-    name: "室內寫實",
-    desc: "SketchUp → 照片級寫實。FLUX GGUF + Lineart + 預處理（已驗證最佳參數）",
-    checkpoint: "Q5_K_S.gguf",
-    checkpointFallback: "flux1-dev-fp8",
-    controlnet: { enabled: true, type: "lineart", keyword: "union-pro", keywordFallback: "mistoline", strength: 0.45, preprocess: true, endPercent: 0.80 },
-    denoise: 0.92,
-    promptTemplate: "photorealistic interior design, fixed configuration, preserve architectural integrity, maintain original spatial layout, warm wood flooring, soft fabric furniture, recessed lighting, natural daylight from windows, professional architectural photography, ultra detailed, realistic materials and textures",
-    negativeTemplate: "altered layout, moved furniture, modified decor, different room configuration, added objects, removed objects",
-  },
-  "interior-style-photo": {
-    name: "風格轉換（寫實圖）",
-    desc: "已渲染寫實圖 → 換風格色調。低 denoise 保留細節，只改材質與配色",
-    checkpoint: "Q5_K_S.gguf",
-    checkpointFallback: "flux1-dev-fp8",
-    controlnet: { enabled: true, type: "lineart", keyword: "union-pro", keywordFallback: "mistoline", strength: 0.55, preprocess: true },
-    denoise: 0.50,
-    styleRef: { enabled: true, mode: "style-only", weight: 0.6 },
-    promptTemplate: "fixed configuration, bit-for-bit identical spatial layout, non-destructive editing, same furniture placement, photorealistic interior design, professional photography, realistic materials, warm lighting",
-    negativeTemplate: "altered layout, moved furniture, modified decor, different room configuration, missing objects, extra objects, cartoon, blurry, low quality, watermark, deformed",
-  },
-  "interior-style-sketch": {
-    name: "風格轉換（線圖）",
-    desc: "SketchUp 線圖 → 指定風格寫實圖。高 denoise + ControlNet 保留佈局",
-    checkpoint: "Q5_K_S.gguf",
-    checkpointFallback: "flux1-dev-fp8",
-    controlnet: { enabled: true, type: "lineart", keyword: "union-pro", keywordFallback: "mistoline", strength: 0.45, preprocess: true, endPercent: 0.80 },
-    denoise: 0.92,
-    styleRef: { enabled: true, mode: "style-only", weight: 0.6 },
-    promptTemplate: "photorealistic interior design, fixed configuration, preserve architectural integrity, professional architectural photography, ultra detailed, realistic materials and textures, warm natural lighting",
-    negativeTemplate: "altered layout, moved furniture, modified decor, sketch, lineart, wireframe, 3D model, SketchUp, cartoon, blurry, low quality, watermark, deformed, text",
-  },
-  "exterior": {
-    name: "建築外觀",
-    desc: "建築外觀 → 照片級寫實。FLUX GGUF + Lineart + 預處理",
-    checkpoint: "Q5_K_S.gguf",
-    checkpointFallback: "flux1-dev-fp8",
-    controlnet: { enabled: true, type: "lineart", keyword: "union-pro", keywordFallback: "mistoline", strength: 0.45, preprocess: true, endPercent: 0.80 },
-    denoise: 0.92,
-    promptTemplate: "photorealistic architectural exterior, fixed configuration, preserve architectural integrity, modern building, blue sky, professional landscaping, golden hour lighting, detailed facade materials, glass reflections, 8K ultra detailed, volumetric lighting",
-    negativeTemplate: "altered layout, modified structure, sketch, lineart, wireframe, 3D model, cartoon, painting, blurry, low quality, deformed, watermark, text, flat lighting",
-  },
-  "night-scene": {
-    name: "夜景氣氛",
-    desc: "室內/室外夜景。Lineart + 電影級暗調暖光",
-    checkpoint: "Q5_K_S.gguf",
-    checkpointFallback: "flux1-dev-fp8",
-    controlnet: { enabled: true, type: "lineart", keyword: "union-pro", keywordFallback: "mistoline", strength: 0.45, preprocess: true, endPercent: 0.80 },
-    denoise: 0.92,
-    promptTemplate: "night scene interior design, fixed configuration, preserve architectural integrity, maintain original spatial layout, warm ambient lighting, cozy atmosphere, cinematic mood, accent lights, soft warm glow, professional photography, dramatic shadows, moody color grading, 8K detailed",
-    negativeTemplate: "altered layout, moved furniture, modified decor, bright daylight, overexposed, harsh lighting, cartoon, blurry, low quality, watermark, sketch, lineart, flat lighting",
-  },
-};
+// SCENE_PRESETS is now loaded from docs/default-params.json via loadAndApplyDefaults()
+// See SCENE_PRESETS_FALLBACK at top of file for offline fallback.
 
 function findModelByKeyword(selectEl, keyword) {
   const options = Array.from(selectEl.options);
@@ -3117,7 +3162,9 @@ if (historyClearAll) {
 }
 
 // ---------- Init ----------
-restoreStateIfExists();
-document.querySelector('[data-tool="brush"]')?.classList.add("active");
-loadAvailableModels();
-restoreControlNetSettings();
+loadAndApplyDefaults().then(() => {
+  restoreStateIfExists();
+  document.querySelector('[data-tool="brush"]')?.classList.add("active");
+  loadAvailableModels();
+  restoreControlNetSettings();
+});
